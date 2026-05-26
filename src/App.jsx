@@ -344,13 +344,34 @@ function RegisterPage({ navigate }) {
 { id: "annual", label: "Annual", price: "$288", period: "/year", note: "Best value — save 20%" },  
   ]; 
 const handleSubmit = async () => {
-    if (form.password !== form.confirm) { setError("Passwords do not match."); return; }
-    if (form.password.length < 6) { setError("Password must be at least 6 characters."); return; }
-    setLoading(true); setError("");
-    await new Promise(r => setTimeout(r, 1200));
+  if (form.password !== form.confirm) { setError("Passwords do not match."); return; }
+  if (form.password.length < 6) { setError("Password must be at least 6 characters."); return; }
+  setLoading(true); setError("");
+  try {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+    });
+    if (authError) throw authError;
+    const userId = authData.user?.id;
+    if (!userId) throw new Error("Account creation failed. Please try again.");
+    const { error: bizError } = await supabase.from("businesses").insert([{
+      name: form.businessName,
+      owner_name: form.ownerName,
+      phone: form.phone,
+      business_type: form.businessType,
+      subscription_plan: form.plan,
+      status: "pending",
+      user_id: userId,
+    }]);
+    if (bizError) throw bizError;
     setLoading(false);
     setDone(true);
-  };
+  } catch (err) {
+    setError(err.message || "Something went wrong. Please try again.");
+    setLoading(false);
+  }
+};
 
   if (done) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
