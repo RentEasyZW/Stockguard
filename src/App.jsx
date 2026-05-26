@@ -1,5 +1,5 @@
 import { useState, useEffect, createContext, useContext } from "react";
-
+import { supabase } from './supabaseClient';
 // ─────────────────────────────────────────────
 // MOCK DATA (wire to Supabase in production)
 // ─────────────────────────────────────────────
@@ -32,18 +32,27 @@ function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem("sg_user");
-    if (saved) setUser(JSON.parse(saved));
-    setLoading(false);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = (userData) => {
-    setUser(userData);
-    localStorage.setItem("sg_user", JSON.stringify(userData));
+  const login = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
   };
-  const logout = () => {
+
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem("sg_user");
   };
 
   return (
@@ -218,19 +227,17 @@ function LoginPage({ navigate }) {
     if (!form.email || !form.password) { setError("Please fill in all fields."); return; }
     setLoading(true); setError("");
 
-    await new Promise(r => setTimeout(r, 800));
-
-    // Mock auth logic
-    if (isAdmin && form.email === "admin@stockguard.co.zw" && form.password === "admin123") {
-      login({ id: "admin-1", name: "MJ Gara", role: "admin", email: form.email });
-      navigate("#admin");
-    } else if (!isAdmin && form.email === "tendai@chisora.co.zw" && form.password === "password") {
-      login({ id: "user-1", name: "Tendai Chisora", role: "owner", business_id: "biz-001", business_name: "Chisora Electrical", email: form.email });
-      navigate("#dashboard");
-    } else {
-      setError("Invalid credentials. Try demo: tendai@chisora.co.zw / password");
-    }
-    setLoading(false);
+    try {
+  await login(form.email, form.password);
+  if (isAdmin) {
+    navigate("#admin");
+  } else {
+    navigate("#dashboard");
+  }
+} catch (err) {
+  setError("Invalid email or password.");
+}
+setLoading(false);  
   };
 
   return (
@@ -332,12 +339,11 @@ function RegisterPage({ navigate }) {
   const [done, setDone] = useState(false);
 
   const PLANS = [
-    { id: "monthly", label: "Monthly", price: "$5", period: "/month", note: "Billed monthly" },
-    { id: "quarterly", label: "Quarterly", price: "$13", period: "/quarter", note: "Save ~13%" },
-    { id: "annual", label: "Annual", price: "$45", period: "/year", note: "Best value — save 25%" },
-  ];
-
-  const handleSubmit = async () => {
+  { id: "monthly", label: "Monthly", price: "$30", period: "/month", note: "Early adopter rate" },
+{ id: "quarterly", label: "Quarterly", price: "$81", period: "/quarter", note: "Save 10%" },
+{ id: "annual", label: "Annual", price: "$288", period: "/year", note: "Best value — save 20%" },  
+  ]; 
+const handleSubmit = async () => {
     if (form.password !== form.confirm) { setError("Passwords do not match."); return; }
     if (form.password.length < 6) { setError("Password must be at least 6 characters."); return; }
     setLoading(true); setError("");
@@ -850,7 +856,7 @@ function PaymentsTab() {
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
             <span style={{ color: "var(--muted)", fontSize: 14 }}>Plan</span>
-            <span style={{ fontWeight: 600 }}>Monthly — $5</span>
+            <span style={{ fontWeight: 600 }}>Monthly — $30</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span style={{ color: "var(--muted)", fontSize: 14 }}>Expires</span>
@@ -1104,10 +1110,9 @@ function App() {
   const page = () => {
     if (route === "#register") return <RegisterPage navigate={navigate} />;
     if (!user) return <LoginPage navigate={navigate} />;
-    if (user.role === "admin") return <AdminPanel navigate={navigate} />;
-    return <BusinessDashboard navigate={navigate} />;
-  };
-
+  if (user.email === "admin@stockguard.co.zw") return <AdminPanel navigate={navigate}/>;  
+  return <BusinessDashboard navigate={navigate} />;
+};
   return (
     <>
       <GlobalStyle />
