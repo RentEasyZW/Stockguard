@@ -731,11 +731,20 @@ function MovementsTab({ products, setProducts }) {
   else if (form.movement_type === "stock_out") { if (qty > product.current_stock) { setMsg("Insufficient stock."); return; } newStock -= qty; }
   else if (form.movement_type === "adjustment") newStock = qty;
 
-  const { data, error } = await supabase.from("stock_movements").insert([{
-    product_id: form.product_id, movement_type: form.movement_type,
-    quantity: qty, previous_stock: product.current_stock,
-    new_stock: newStock, reference: form.reference, notes: form.notes,
-  }]).select().single();
+ const { data: bizData } = await supabase
+  .from("businesses").select("id").eq("user_id", user?.id).single();
+
+const { data, error } = await supabase.from("stock_movements").insert([{
+  product_id: form.product_id,
+  business_id: bizData?.id,
+  user_id: user?.id,
+  movement_type: form.movement_type,
+  quantity: qty,
+  previous_stock: product.current_stock,
+  new_stock: newStock,
+  reference: form.reference,
+  notes: form.notes,
+}]).select().single();
 
   if (!error) {
     await supabase.from("products").update({ current_stock: newStock }).eq("id", form.product_id);
