@@ -946,11 +946,19 @@ const [products, setProducts] = useState([]);
 
 useEffect(() => {
   const fetchProducts = async () => {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("business_id", user?.id);
-    if (!error) setProducts(data || []);
+    const { data: bizData } = await supabase
+      .from("businesses")
+      .select("id")
+      .eq("user_id", user?.id)
+      .single();
+    
+    if (bizData) {
+      const { data } = await supabase
+        .from("products")
+        .select("*")
+        .eq("business_id", bizData.id);
+      setProducts(data || []);
+    }
   };
   if (user) fetchProducts();
 }, [user]);
