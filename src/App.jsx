@@ -317,18 +317,15 @@ setLoading(false);
             </span>
           </div>
 
-          <div style={{ marginTop: 28, padding: "14px", background: "var(--surface)", borderRadius: 8, fontSize: 12, color: "var(--muted)" }}>
-            <strong style={{ color: "var(--ink)" }}>Demo credentials:</strong><br />
-            Business: tendai@chisora.co.zw / password<br />
-            Admin: admin@stockguard.co.zw / admin123
+          
           </div>
         </div>
       </div>
-    </div>
+      </div>
   );
 }
 
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────f
 // REGISTER PAGE
 // ─────────────────────────────────────────────
 function RegisterPage({ navigate }) {
@@ -944,7 +941,19 @@ function PaymentsTab() {
 // ─────────────────────────────────────────────
 function BusinessDashboard({ navigate }) {
   const [activeTab, setActiveTab] = useState("overview");
-  const [products, setProducts] = useState(mockDB.products);
+const { user } = useAuth();
+const [products, setProducts] = useState([]);
+
+useEffect(() => {
+  const fetchProducts = async () => {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("business_id", user?.id);
+    if (!error) setProducts(data || []);
+  };
+  if (user) fetchProducts();
+}, [user]);
 
   const tabs = { overview: <OverviewTab products={products} />, products: <ProductsTab products={products} setProducts={setProducts} />, movements: <MovementsTab products={products} setProducts={setProducts} />, alerts: <AlertsTab products={products} />, payments: <PaymentsTab /> };
 
