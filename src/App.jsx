@@ -713,23 +713,39 @@ const handleDelete = async (id) => {
 function MovementsTab({ products, setProducts }) {
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
-  const [movements, setMovements] = useState([]);
-  const [form, setForm] = useState({ product_id: "", movement_type: "stock_in", quantity: "", reference: "", notes: "" });
-  const [msg, setMsg] = useState("");
+  useEffect(() => {
+  const fetchMovements = async () => {
+    const { data } = await supabase.from("stock_movements")
+      .select("*, products(name)").order("created_at", { ascending: false }).limit(50);
+    if (data) setMovements(data.map(m => ({ ...m, product_name: m.products?.name })));
+  };
+  fetchMovements();
+}, []);
 
-  const handleRecord = () => {
-    if (!form.product_id || !form.quantity) { setMsg("Please select a product and quantity."); return; }
-    const product = products.find(p => p.id === form.product_id);
-    const qty = parseFloat(form.quantity);
-    let newStock = product.current_stock;
-    if (form.movement_type === "stock_in" || form.movement_type === "return") newStock += qty;
-    else if (form.movement_type === "stock_out") { if (qty > product.current_stock) { setMsg("Insufficient stock."); return; } newStock -= qty; }
-    else if (form.movement_type === "adjustment") newStock = qty;
+ const handleRecord = async () => {
+  if (!form.product_id || !form.quantity) { setMsg("Please select a product and quantity."); return; }
+  const product = products.find(p => p.id === form.product_id);
+  const qty = parseFloat(form.quantity);
+  let newStock = product.current_stock;
+  if (form.movement_type === "stock_in" || form.movement_type === "return") newStock += qty;
+  else if (form.movement_type === "stock_out") { if (qty > product.current_stock) { setMsg("Insufficient stock."); return; } newStock -= qty; }
+  else if (form.movement_type === "adjustment") newStock = qty;
 
-    const movement = { id: `m${Date.now()}`, product_name: product.name, movement_type: form.movement_type, quantity: qty, previous_stock: product.current_stock, new_stock: newStock, reference: form.reference, notes: form.notes, created_at: new Date().toLocaleString() };
-    setMovements(prev => [movement, ...prev]);
+  const { data, error } = await supabase.from("stock_movements").insert([{
+    product_id: form.product_id, movement_type: form.movement_type,
+    quantity: qty, previous_stock: product.current_stock,
+    new_stock: newStock, reference: form.reference, notes: form.notes,
+  }]).select().single();
+
+  if (!error) {
+    await supabase.from("products").update({ current_stock: newStock }).eq("id", form.product_id);
+    setMovements(prev => [data, ...prev]);
     setProducts(prev => prev.map(p => p.id === form.product_id ? { ...p, current_stock: newStock } : p));
     setShowModal(false);
+    setForm({ product_id: "", movement_type: "stock_in", quantity: "", reference: "", notes: "" });
+    setMsg("");
+  } else { setMsg("Failed to save movement."); }
+};
     setForm({ product_id: "", movement_type: "stock_in", quantity: "", reference: "", notes: "" });
     setMsg("");
   };
