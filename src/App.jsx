@@ -618,16 +618,30 @@ function ProductsTab({ products, setProducts }) {
   const openAdd = () => { setEditProduct(null); setForm({ name: "", sku: "", category: "", cost_price: "", selling_price: "", current_stock: "", low_stock_threshold: "", unit: "units", supplier: "" }); setShowModal(true); };
   const openEdit = (p) => { setEditProduct(p); setForm({ ...p }); setShowModal(true); };
 
-  const handleSave = () => {
-    if (editProduct) {
-      setProducts(prev => prev.map(p => p.id === editProduct.id ? { ...p, ...form, cost_price: +form.cost_price, selling_price: +form.selling_price, current_stock: +form.current_stock, low_stock_threshold: +form.low_stock_threshold } : p));
-    } else {
-      setProducts(prev => [...prev, { ...form, id: `p${Date.now()}`, business_id: user.business_id, cost_price: +form.cost_price, selling_price: +form.selling_price, current_stock: +form.current_stock, low_stock_threshold: +form.low_stock_threshold }]);
-    }
-    setShowModal(false);
+  const handleSave = async () => {
+  const payload = {
+    name: form.name, sku: form.sku, category: form.category,
+    cost_price: +form.cost_price, selling_price: +form.selling_price,
+    current_stock: +form.current_stock, low_stock_threshold: +form.low_stock_threshold,
+    unit: form.unit, supplier: form.supplier,
   };
+  if (editProduct) {
+    const { error } = await supabase.from("products").update(payload).eq("id", editProduct.id);
+    if (!error) setProducts(prev => prev.map(p => p.id === editProduct.id ? { ...p, ...payload } : p));
+  } else {
+    const { data: bizData } = await supabase.from("businesses").select("id").eq("user_id", user?.id).single();
+    const { data, error } = await supabase.from("products").insert([{ ...payload, business_id: bizData.id }]).select().single();
+    if (!error) setProducts(prev => [...prev, data]);
+  }
+  setShowModal(false);
+};
 
-  const handleDelete = (id) => { if (confirm("Delete this product?")) setProducts(prev => prev.filter(p => p.id !== id)); };
+const handleDelete = async (id) => {
+  if (confirm("Delete this product?")) {
+    await supabase.from("products").delete().eq("id", id);
+    setProducts(prev => prev.filter(p => p.id !== id));
+  }
+};
 
   return (
     <div>
