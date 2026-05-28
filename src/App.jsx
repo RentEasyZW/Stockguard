@@ -734,6 +734,8 @@ function MovementsTab({ products, setProducts }) {
  const { data: bizData } = await supabase
   .from("businesses").select("id").eq("user_id", user?.id).single();
 
+console.log("bizData:", bizData, "user:", user?.id);
+
 const { data, error } = await supabase.from("stock_movements").insert([{
   product_id: form.product_id,
   business_id: bizData?.id,
