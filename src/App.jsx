@@ -753,7 +753,7 @@ const { data, error } = await supabase.from("stock_movements").insert([{
     setShowModal(false);
     setForm({ product_id: "", movement_type: "stock_in", quantity: "", reference: "", notes: "" });
     setMsg("");
-  } else { setMsg("Failed to save movement."); }
+  } else { setMsg("Error: " + (error?.message || JSON.stringify(error))); }
 };
     setForm({ product_id: "", movement_type: "stock_in", quantity: "", reference: "", notes: "" });
     setMsg("");
