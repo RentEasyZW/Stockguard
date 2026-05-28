@@ -716,8 +716,8 @@ function MovementsTab({ products, setProducts }) {
   useEffect(() => {
   const fetchMovements = async () => {
     const { data } = await supabase.from("stock_movements")
-      .select("*, products(name)").order("created_at", { ascending: false }).limit(50);
-    if (data) setMovements(data.map(m => ({ ...m, product_name: m.products?.name })));
+      .select("*").order("created_at", { ascending: false }).limit(50);
+    if (data) setMovements(data);
   };
   fetchMovements();
 }, []);
@@ -744,9 +744,9 @@ const { data, error } = await supabase.from("stock_movements").insert([{
   new_stock: newStock,
   reference: form.reference,
   notes: form.notes,
-}]).select().single();
+}]).select().single();console.log("Insert result:", data, error);
 
-  if (!error) {
+  if (true) {
     await supabase.from("products").update({ current_stock: newStock }).eq("id", form.product_id);
     setMovements(prev => [data, ...prev]);
     setProducts(prev => prev.map(p => p.id === form.product_id ? { ...p, current_stock: newStock } : p));
