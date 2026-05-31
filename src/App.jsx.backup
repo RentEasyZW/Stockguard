@@ -226,21 +226,23 @@ function LoginPage({ navigate }) {
   const handleSubmit = async () => {
     if (!form.email || !form.password) { setError("Please fill in all fields."); return; }
     setLoading(true); setError("");
+
     try {
-      await login(form.email, form.password);
-      if (isAdmin) {
-        navigate("#admin");
-      } else {
-        navigate("#dashboard");
-      }
-    } catch (err) {
-      setError("Invalid email or password.");
-    }
-    setLoading(false);
+  await login(form.email, form.password);
+  if (isAdmin) {
+    navigate("#admin");
+  } else {
+    navigate("#dashboard");
+  }
+} catch (err) {
+  setError("Invalid email or password.");
+}
+setLoading(false);  
   };
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", background: "var(--surface)" }}>
+      {/* Left panel */}
       <div style={{ flex: 1, background: "var(--ink)", display: "flex", flexDirection: "column", justifyContent: "center", padding: "60px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: "rgba(0,196,140,0.08)" }} />
         <div style={{ position: "absolute", bottom: -40, left: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,107,53,0.06)" }} />
@@ -266,6 +268,7 @@ function LoginPage({ navigate }) {
         </div>
       </div>
 
+      {/* Right panel */}
       <div style={{ width: 480, display: "flex", alignItems: "center", justifyContent: "center", padding: "48px 40px" }}>
         <div style={{ width: "100%" }} className="fade-up">
           <div style={{ marginBottom: 32 }}>
@@ -273,6 +276,7 @@ function LoginPage({ navigate }) {
             <p style={{ color: "var(--muted)", fontSize: 14, marginTop: 6 }}>Sign in to your StockGuard account</p>
           </div>
 
+          {/* Admin toggle */}
           <div style={{ display: "flex", background: "var(--surface)", borderRadius: 8, padding: 4, marginBottom: 24, gap: 4 }}>
             {["Business Login", "Admin Login"].map((label, i) => (
               <button key={i} className="btn" onClick={() => { setIsAdmin(i === 1); setError(""); }}
@@ -312,13 +316,16 @@ function LoginPage({ navigate }) {
               Create account
             </span>
           </div>
+
+          
+          </div>
         </div>
       </div>
-    </div>
+      </div>
   );
 }
 
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────f
 // REGISTER PAGE
 // ─────────────────────────────────────────────
 function RegisterPage({ navigate }) {
@@ -329,40 +336,39 @@ function RegisterPage({ navigate }) {
   const [done, setDone] = useState(false);
 
   const PLANS = [
-    { id: "monthly", label: "Monthly", price: "$30", period: "/month", note: "Early adopter rate" },
-    { id: "quarterly", label: "Quarterly", price: "$81", period: "/quarter", note: "Save 10%" },
-    { id: "annual", label: "Annual", price: "$288", period: "/year", note: "Best value — save 20%" },
-  ];
-
-  const handleSubmit = async () => {
-    if (form.password !== form.confirm) { setError("Passwords do not match."); return; }
-    if (form.password.length < 6) { setError("Password must be at least 6 characters."); return; }
-    setLoading(true); setError("");
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-      });
-      if (authError) throw authError;
-      const userId = authData.user?.id;
-      if (!userId) throw new Error("Account creation failed. Please try again.");
-      const { error: bizError } = await supabase.from("businesses").insert([{
-        name: form.businessName,
-        owner_name: form.ownerName,
-        phone: form.phone,
-        business_type: form.businessType,
-        subscription_plan: form.plan,
-        status: "pending",
-        user_id: userId,
-      }]);
-      if (bizError) throw bizError;
-      setLoading(false);
-      setDone(true);
-    } catch (err) {
-      setError(err.message || "Something went wrong. Please try again.");
-      setLoading(false);
-    }
-  };
+  { id: "monthly", label: "Monthly", price: "$30", period: "/month", note: "Early adopter rate" },
+{ id: "quarterly", label: "Quarterly", price: "$81", period: "/quarter", note: "Save 10%" },
+{ id: "annual", label: "Annual", price: "$288", period: "/year", note: "Best value — save 20%" },  
+  ]; 
+const handleSubmit = async () => {
+  if (form.password !== form.confirm) { setError("Passwords do not match."); return; }
+  if (form.password.length < 6) { setError("Password must be at least 6 characters."); return; }
+  setLoading(true); setError("");
+  try {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+    });
+    if (authError) throw authError;
+    const userId = authData.user?.id;
+    if (!userId) throw new Error("Account creation failed. Please try again.");
+    const { error: bizError } = await supabase.from("businesses").insert([{
+      name: form.businessName,
+      owner_name: form.ownerName,
+      phone: form.phone,
+      business_type: form.businessType,
+      subscription_plan: form.plan,
+      status: "pending",
+      user_id: userId,
+    }]);
+    if (bizError) throw bizError;
+    setLoading(false);
+    setDone(true);
+  } catch (err) {
+    setError(err.message || "Something went wrong. Please try again.");
+    setLoading(false);
+  }
+};
 
   if (done) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -396,6 +402,7 @@ function RegisterPage({ navigate }) {
           <p style={{ color: "var(--muted)", fontSize: 14, marginTop: 6 }}>Create your business account</p>
         </div>
 
+        {/* Step indicator */}
         <div style={{ display: "flex", alignItems: "center", marginBottom: 28 }} className="fade-up">
           {["Business Info", "Account", "Choose Plan"].map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", flex: 1 }}>
@@ -612,29 +619,29 @@ function ProductsTab({ products, setProducts }) {
   const openEdit = (p) => { setEditProduct(p); setForm({ ...p }); setShowModal(true); };
 
   const handleSave = async () => {
-    const payload = {
-      name: form.name, sku: form.sku, category: form.category,
-      cost_price: +form.cost_price, selling_price: +form.selling_price,
-      current_stock: +form.current_stock, low_stock_threshold: +form.low_stock_threshold,
-      unit: form.unit, supplier: form.supplier,
-    };
-    if (editProduct) {
-      const { error } = await supabase.from("products").update(payload).eq("id", editProduct.id);
-      if (!error) setProducts(prev => prev.map(p => p.id === editProduct.id ? { ...p, ...payload } : p));
-    } else {
-      const { data: bizData } = await supabase.from("businesses").select("id").eq("user_id", user?.id).single();
-      const { data, error } = await supabase.from("products").insert([{ ...payload, business_id: bizData.id }]).select().single();
-      if (!error) setProducts(prev => [...prev, data]);
-    }
-    setShowModal(false);
+  const payload = {
+    name: form.name, sku: form.sku, category: form.category,
+    cost_price: +form.cost_price, selling_price: +form.selling_price,
+    current_stock: +form.current_stock, low_stock_threshold: +form.low_stock_threshold,
+    unit: form.unit, supplier: form.supplier,
   };
+  if (editProduct) {
+    const { error } = await supabase.from("products").update(payload).eq("id", editProduct.id);
+    if (!error) setProducts(prev => prev.map(p => p.id === editProduct.id ? { ...p, ...payload } : p));
+  } else {
+    const { data: bizData } = await supabase.from("businesses").select("id").eq("user_id", user?.id).single();
+    const { data, error } = await supabase.from("products").insert([{ ...payload, business_id: bizData.id }]).select().single();
+    if (!error) setProducts(prev => [...prev, data]);
+  }
+  setShowModal(false);
+};
 
-  const handleDelete = async (id) => {
-    if (confirm("Delete this product?")) {
-      await supabase.from("products").delete().eq("id", id);
-      setProducts(prev => prev.filter(p => p.id !== id));
-    }
-  };
+const handleDelete = async (id) => {
+  if (confirm("Delete this product?")) {
+    await supabase.from("products").delete().eq("id", id);
+    setProducts(prev => prev.filter(p => p.id !== id));
+  }
+};
 
   return (
     <div>
@@ -706,68 +713,50 @@ function ProductsTab({ products, setProducts }) {
 function MovementsTab({ products, setProducts }) {
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
-  const [movements, setMovements] = useState([]);
-  const [msg, setMsg] = useState("");
-  const [form, setForm] = useState({ product_id: "", movement_type: "stock_in", quantity: "", reference: "", notes: "" });
-
   useEffect(() => {
-    const fetchMovements = async () => {
-      const { data } = await supabase.from("stock_movements")
-        .select("*").order("created_at", { ascending: false }).limit(50);
-      if (data) setMovements(data);
-    };
-    fetchMovements();
-  }, []);
+  const fetchMovements = async () => {
+    const { data } = await supabase.from("stock_movements")
+      .select("*").order("created_at", { ascending: false }).limit(50);
+    if (data) setMovements(data);
+  };
+  fetchMovements();
+}, []);
 
-  const handleRecord = async () => {
-    if (!form.product_id || !form.quantity) {
-      setMsg("Please select a product and quantity.");
-      return;
-    }
+ const handleRecord = async () => {
+  if (!form.product_id || !form.quantity) { setMsg("Please select a product and quantity."); return; }
+  const product = products.find(p => p.id === form.product_id);console.log("product found:", product, "form.product_id:", form.product_id, "all products:", products.map(p => p.id));
+  const qty = parseFloat(form.quantity);
+  let newStock = product.current_stock;
+  if (form.movement_type === "stock_in" || form.movement_type === "return") newStock += qty;
+  else if (form.movement_type === "stock_out") { if (qty > product.current_stock) { setMsg("Insufficient stock."); return; } newStock -= qty; }
+  else if (form.movement_type === "adjustment") newStock = qty;
 
-    const product = products.find(p => String(p.id) === String(form.product_id));
+ const { data: bizData } = await supabase
+  .from("businesses").select("id").eq("user_id", user?.id).single();
 
-    if (!product) {
-      setMsg("Product not found. Please try again.");
-      return;
-    }
+console.log("bizData:", bizData, "user:", user?.id);
 
-    const qty = parseFloat(form.quantity);
-    let newStock = product.current_stock;
+const { data, error } = await supabase.from("stock_movements").insert([{
+  product_id: form.product_id,
+  business_id: bizData?.id,
+  user_id: user?.id,
+  movement_type: form.movement_type,
+  quantity: qty,
+  previous_stock: product.current_stock,
+  new_stock: newStock,
+  reference: form.reference,
+  notes: form.notes,
+}]).select().single();console.log("Insert result:", data, error);
 
-    if (form.movement_type === "stock_in" || form.movement_type === "return") {
-      newStock += qty;
-    } else if (form.movement_type === "stock_out") {
-      if (qty > product.current_stock) { setMsg("Insufficient stock."); return; }
-      newStock -= qty;
-    } else if (form.movement_type === "adjustment") {
-      newStock = qty;
-    }
-
-    const { data: bizData } = await supabase
-      .from("businesses").select("id").eq("user_id", user?.id).single();
-
-    const { data, error } = await supabase.from("stock_movements").insert([{
-      product_id: form.product_id,
-      business_id: bizData?.id,
-      user_id: user?.id,
-      movement_type: form.movement_type,
-      quantity: qty,
-      previous_stock: product.current_stock,
-      new_stock: newStock,
-      reference: form.reference,
-      notes: form.notes,
-    }]).select().single();
-
-    if (error) {
-      setMsg("Error: " + error.message);
-      return;
-    }
-
+  if (true) {
     await supabase.from("products").update({ current_stock: newStock }).eq("id", form.product_id);
     setMovements(prev => [data, ...prev]);
     setProducts(prev => prev.map(p => p.id === form.product_id ? { ...p, current_stock: newStock } : p));
     setShowModal(false);
+    setForm({ product_id: "", movement_type: "stock_in", quantity: "", reference: "", notes: "" });
+    setMsg("");
+  } else { setMsg("Error: " + (error?.message || JSON.stringify(error))); }
+};
     setForm({ product_id: "", movement_type: "stock_in", quantity: "", reference: "", notes: "" });
     setMsg("");
   };
@@ -794,13 +783,13 @@ function MovementsTab({ products, setProducts }) {
             <tbody>
               {movements.map(m => (
                 <tr key={m.id}>
-                  <td><strong>{m.product_name || m.product_id}</strong></td>
+                  <td><strong>{m.product_name}</strong></td>
                   <td><span className={`tag ${typeColors[m.movement_type]}`}>{typeLabels[m.movement_type]}</span></td>
                   <td>{m.quantity}</td>
                   <td>{m.previous_stock}</td>
                   <td><strong>{m.new_stock}</strong></td>
                   <td style={{ color: "var(--muted)", fontSize: 12 }}>{m.reference || "—"}</td>
-                  <td style={{ color: "var(--muted)", fontSize: 12 }}>{new Date(m.created_at).toLocaleDateString()}</td>
+                  <td style={{ color: "var(--muted)", fontSize: 12 }}>{m.created_at}</td>
                 </tr>
               ))}
             </tbody>
@@ -917,6 +906,7 @@ function PaymentsTab() {
       <div className="page-header fade-up"><h2>Payments</h2><p>Manage your StockGuard subscription</p></div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, maxWidth: 800 }} className="fade-up-2">
+        {/* Current subscription */}
         <div className="card">
           <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, marginBottom: 16 }}>Current Subscription</p>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
@@ -933,6 +923,7 @@ function PaymentsTab() {
           </div>
         </div>
 
+        {/* Renew */}
         <div className="card">
           <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, marginBottom: 16 }}>Renew Subscription</p>
           {step === "choose" && (
@@ -991,35 +982,29 @@ function PaymentsTab() {
 // ─────────────────────────────────────────────
 function BusinessDashboard({ navigate }) {
   const [activeTab, setActiveTab] = useState("overview");
-  const { user } = useAuth();
-  const [products, setProducts] = useState([]);
+const { user } = useAuth();
+const [products, setProducts] = useState([]);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      const { data: bizData } = await supabase
-        .from("businesses")
-        .select("id")
-        .eq("user_id", user?.id)
-        .single();
-
-      if (bizData) {
-        const { data } = await supabase
-          .from("products")
-          .select("*")
-          .eq("business_id", bizData.id);
-        setProducts(data || []);
-      }
-    };
-    if (user) fetchProducts();
-  }, [user]);
-
-  const tabs = {
-    overview: <OverviewTab products={products} />,
-    products: <ProductsTab products={products} setProducts={setProducts} />,
-    movements: <MovementsTab products={products} setProducts={setProducts} />,
-    alerts: <AlertsTab products={products} />,
-    payments: <PaymentsTab />
+useEffect(() => {
+  const fetchProducts = async () => {
+    const { data: bizData } = await supabase
+      .from("businesses")
+      .select("id")
+      .eq("user_id", user?.id)
+      .single();
+    
+    if (bizData) {
+      const { data } = await supabase
+        .from("products")
+        .select("*")
+        .eq("business_id", bizData.id);
+      setProducts(data || []);
+    }
   };
+  if (user) fetchProducts();
+}, [user]);
+
+  const tabs = { overview: <OverviewTab products={products} />, products: <ProductsTab products={products} setProducts={setProducts} />, movements: <MovementsTab products={products} setProducts={setProducts} />, alerts: <AlertsTab products={products} />, payments: <PaymentsTab /> };
 
   return (
     <DashboardLayout activeTab={activeTab} setActiveTab={setActiveTab} navigate={navigate}>
@@ -1204,10 +1189,9 @@ function App() {
   const page = () => {
     if (route === "#register") return <RegisterPage navigate={navigate} />;
     if (!user) return <LoginPage navigate={navigate} />;
-    if (user.email === "admin@stockguard.co.zw") return <AdminPanel navigate={navigate} />;
-    return <BusinessDashboard navigate={navigate} />;
-  };
-
+  if (user.email === "admin@stockguard.co.zw") return <AdminPanel navigate={navigate}/>;  
+  return <BusinessDashboard navigate={navigate} />;
+};
   return (
     <>
       <GlobalStyle />
