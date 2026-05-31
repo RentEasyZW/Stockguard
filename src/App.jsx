@@ -712,8 +712,9 @@ function MovementsTab({ products, setProducts }) {
 
   useEffect(() => {
     const fetchMovements = async () => {
-      const { data } = await supabase.from("stock_movements")
-        .select("*").order("created_at", { ascending: false }).limit(50);
+    const { data } = await supabase.from("stock_movements")
+  .select("*, products(name)")
+  .order("created_at", { ascending: false }).limit(50);
       if (data) setMovements(data);
     };
     fetchMovements();
@@ -794,7 +795,7 @@ function MovementsTab({ products, setProducts }) {
             <tbody>
               {movements.map(m => (
                 <tr key={m.id}>
-                  <td><strong>{m.product_name || m.product_id}</strong></td>
+                  <td><strong>{m.products?.name || m.product_id}</strong></td>
                   <td><span className={`tag ${typeColors[m.movement_type]}`}>{typeLabels[m.movement_type]}</span></td>
                   <td>{m.quantity}</td>
                   <td>{m.previous_stock}</td>
