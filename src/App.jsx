@@ -5,7 +5,7 @@ import { supabase } from './supabaseClient';
 // ─────────────────────────────────────────────
 const mockDB = {
   businesses: [
-    { id: "biz-001", name: "Chisora Electrical", owner_name: "Tendai Chisora", email: "tendai@chisora.co.zw", phone: "0771234567", subscription_status: "active", subscription_plan: "monthly", subscription_expires_at: "2026-06-19", is_active: true, created_at: "2026-04-01" },
+    { id: "biz-001", name: "Chisora Electrical", owner_name: "Tendai Chisora", email: "tendai@chisora.co.zw", phone: "0783464169", subscription_status: "active", subscription_plan: "monthly", subscription_expires_at: "2026-06-19", is_active: true, created_at: "2026-04-01" },
     { id: "biz-002", name: "Moyo General Store", owner_name: "Rutendo Moyo", email: "rutendo@moyo.co.zw", phone: "0772345678", subscription_status: "pending", subscription_plan: "monthly", subscription_expires_at: null, is_active: false, created_at: "2026-05-10" },
     { id: "biz-003", name: "Dube Pharmacy", owner_name: "Sipho Dube", email: "sipho@dube.co.zw", phone: "0773456789", subscription_status: "expired", subscription_plan: "quarterly", subscription_expires_at: "2026-05-01", is_active: false, created_at: "2026-01-15" },
   ],
@@ -376,9 +376,9 @@ function RegisterPage({ navigate }) {
         <div style={{ background: "var(--surface)", borderRadius: 10, padding: "20px", marginBottom: 24, textAlign: "left" }}>
           <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Payment Instructions</p>
           <p style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.8 }}>
-            📱 EcoCash: Send to <strong>0771234567</strong><br />
+            📱 EcoCash: Send to <strong>0783464169</strong><br />
             💳 Paynow: Use reference <strong>{form.email.slice(0, 8).toUpperCase()}</strong><br />
-            📲 WhatsApp proof to: <strong>+263 77 123 4567</strong>
+            📲 WhatsApp proof to: <strong>+263 78 346 4169</strong>
           </p>
         </div>
         <button className="btn btn-primary btn-full" onClick={() => navigate("#login")}>Back to Login</button>
@@ -963,9 +963,9 @@ function PaymentsTab() {
               <div style={{ background: "var(--surface)", borderRadius: 8, padding: 16, marginBottom: 16 }}>
                 <p style={{ fontSize: 13, lineHeight: 2 }}>
                   1. Open EcoCash on your phone<br />
-                  2. Send <strong>${plan.price} USD</strong> to <strong>0771234567</strong><br />
+                  2. Send <strong>${plan.price} USD</strong> to <strong>0783464169</strong><br />
                   3. Use reference: <strong>{user?.email?.slice(0, 8).toUpperCase()}</strong><br />
-                  4. WhatsApp proof to: <strong>+263 77 123 4567</strong>
+                  4. WhatsApp proof to: <strong>+263 78 346 4169</strong>
                 </p>
               </div>
               <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 16 }}>Your account will be activated within 2 hours of payment confirmation.</p>
