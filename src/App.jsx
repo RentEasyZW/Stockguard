@@ -854,9 +854,10 @@ function AlertsTab({ products }) {
   const [sent, setSent] = useState([]);
 
   const sendAlert = (product) => {
-    setSent(prev => [...prev, product.id]);
-    alert(`WhatsApp alert sent for "${product.name}" — ${product.current_stock} ${product.unit} remaining.`);
-  };
+  setSent(prev => [...prev, product.id]);
+  const message = *LOW STOCK ALERT*%0AProduct: ${product.name}%0ACurrent Stock: ${product.current_stock} ${product.unit}%0AMinimum Level: ${product.low_stock_threshold} ${product.unit}%0APlease restock urgently.;
+  window.open(https://wa.me/?text=${message}, '_blank');
+};
 
   return (
     <div>
@@ -1063,10 +1064,12 @@ function AdminPanel({ navigate }) {
   setBusinesses(prev => prev.map(b => b.id === id ? { ...b, subscription_status: newStatus } : b));
 };
 
-  const verifyPayment = (payId, bizId) => {
-    setPayments(prev => prev.map(p => p.id === payId ? { ...p, payment_status: "verified" } : p));
-    setBusinesses(prev => prev.map(b => b.id === bizId ? { ...b, is_active: true, subscription_status: "active" } : b));
-  };
+const verifyPayment = async (payId, bizId) => {
+  await supabase.from("payments").update({ payment_status: "verified" }).eq("id", payId);
+  await supabase.from("businesses").update({ subscription_status: "active" }).eq("id", bizId);
+  setPayments(prev => prev.map(p => p.id === payId ? { ...p, payment_status: "verified" } : p));
+  setBusinesses(prev => prev.map(b => b.id === bizId ? { ...b, subscription_status: "active" } : b));
+};
 
   const tabs = [
     { id: "overview", icon: "⊞", label: "Overview" },
