@@ -906,9 +906,9 @@ function PaymentsTab() {
   const [phone, setPhone] = useState("");
 
   const PLANS = [
-    { id: "monthly", label: "Monthly", price: 5, period: "/month" },
-    { id: "quarterly", label: "Quarterly", price: 13, period: "/quarter" },
-    { id: "annual", label: "Annual", price: 45, period: "/year" },
+    { id: "monthly", label: "Monthly", price: 30, period: "/month" },
+    { id: "quarterly", label: "Quarterly", price: 81, period: "/quarter" },
+    { id: "annual", label: "Annual", price: 288, period: "/year" },
   ];
 
   const plan = PLANS.find(p => p.id === selectedPlan);
