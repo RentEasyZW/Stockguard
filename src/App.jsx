@@ -849,67 +849,7 @@ function MovementsTab({ products, setProducts }) {
 // ─────────────────────────────────────────────
 // ALERTS TAB
 // ─────────────────────────────────────────────
-function AlertsTab({ products }) {
-  const lowStock = products.filter(p => p.current_stock <= p.low_stock_threshold);
-  const [sent, setSent] = useState([]);
 
-  const sendAlert = (product) => {
-  setSent(prev => [...prev, product.id]);
-  const message = *LOW STOCK ALERT*%0AProduct: ${product.name}%0ACurrent Stock: ${product.current_stock} ${product.unit}%0AMinimum Level: ${product.low_stock_threshold} ${product.unit}%0APlease restock urgently.;
-  window.open(https://wa.me/?text=${message}, '_blank');
-};
-
-  return (
-    <div>
-      <div className="page-header fade-up"><h2>Alerts</h2><p>Low stock and expiry notifications</p></div>
-      {lowStock.length === 0 ? (
-        <div className="card fade-up-2" style={{ textAlign: "center", padding: "48px 0" }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-          <p style={{ color: "var(--muted)" }}>All stock levels are healthy. No alerts needed.</p>
-        </div>
-      ) : (
-        <div className="card fade-up-2">
-          <div className="alert-banner alert-warn" style={{ marginBottom: 20 }}>
-            ⚠️ {lowStock.length} product{lowStock.length > 1 ? "s" : ""} below minimum stock threshold
-          </div>
-          <table>
-            <thead><tr><th>Product</th><th>Current Stock</th><th>Threshold</th><th>Deficit</th><th>Action</th></tr></thead>
-            <tbody>
-              {lowStock.map(p => (
-                <tr key={p.id}>
-                  <td><strong>{p.name}</strong></td>
-                  <td style={{ color: "var(--danger)", fontWeight: 600 }}>{p.current_stock} {p.unit}</td>
-                  <td>{p.low_stock_threshold} {p.unit}</td>
-                  <td>{Math.max(0, p.low_stock_threshold - p.current_stock)} {p.unit} short</td>
-                  <td>
-                    <button className="btn btn-accent btn-sm" onClick={() => sendAlert(p)} disabled={sent.includes(p.id)}>
-                      {sent.includes(p.id) ? "✓ Sent" : "📲 WhatsApp Alert"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// PAYMENTS TAB (Business side)
-// ─────────────────────────────────────────────
-function PaymentsTab() {
-  const { user } = useAuth();
-  const [selectedPlan, setSelectedPlan] = useState("monthly");
-  const [payMethod, setPayMethod] = useState("ecocash");
-  const [step, setStep] = useState("choose");
-  const [phone, setPhone] = useState("");
-
-  const PLANS = [
-    { id: "monthly", label: "Monthly", price: 30, period: "/month" },
-    { id: "quarterly", label: "Quarterly", price: 81, period: "/quarter" },
-    { id: "annual", label: "Annual", price: 288, period: "/year" },
   ];
 
   const plan = PLANS.find(p => p.id === selectedPlan);
