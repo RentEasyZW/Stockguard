@@ -1056,9 +1056,12 @@ function AdminPanel({ navigate }) {
       + businesses.filter(b => b.subscription_status === "active" && b.subscription_plan === "annual").length * (45 / 12),
   };
 
-  const toggleBusiness = (id) => {
-    setBusinesses(prev => prev.map(b => b.id === id ? { ...b, is_active: !b.is_active, subscription_status: b.is_active ? "suspended" : "active" } : b));
-  };
+  const toggleBusiness = async (id) => {
+  const biz = businesses.find(b => b.id === id);
+  const newStatus = biz.subscription_status === "active" ? "suspended" : "active";
+  await supabase.from("businesses").update({ subscription_status: newStatus }).eq("id", id);
+  setBusinesses(prev => prev.map(b => b.id === id ? { ...b, subscription_status: newStatus } : b));
+};
 
   const verifyPayment = (payId, bizId) => {
     setPayments(prev => prev.map(p => p.id === payId ? { ...p, payment_status: "verified" } : p));
