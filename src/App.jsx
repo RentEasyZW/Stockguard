@@ -1035,8 +1035,17 @@ function BusinessDashboard({ navigate }) {
 function AdminPanel({ navigate }) {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
-  const [businesses, setBusinesses] = useState(mockDB.businesses);
-  const [payments, setPayments] = useState(mockDB.payments);
+  const [businesses, setBusinesses] = useState ([ ]) ;
+  const [payments, setPayments] = useState([])
+  useEffect(() => {
+  const fetchData = async () => {
+    const { data: biz } = await supabase.from("businesses").select("*");
+    const { data: pay } = await supabase.from("payments").select("*, businesses(name, owner_name, phone)");
+    if (biz) setBusinesses(biz);
+    if (pay) setPayments(pay);
+  };
+  fetchData();
+}, []);
 
   const stats = {
     total: businesses.length,
