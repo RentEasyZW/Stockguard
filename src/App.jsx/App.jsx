@@ -1,27 +1,5 @@
 import { useState, useEffect, createContext, useContext } from "react";
 import { supabase } from './supabaseClient';
-// ─────────────────────────────────────────────
-// MOCK DATA (wire to Supabase in production)
-// ─────────────────────────────────────────────
-const mockDB = {
-  businesses: [
-    { id: "biz-001", name: "Chisora Electrical", owner_name: "Tendai Chisora", email: "tendai@chisora.co.zw", phone: "0783464169", subscription_status: "active", subscription_plan: "monthly", subscription_expires_at: "2026-06-19", is_active: true, created_at: "2026-04-01" },
-    { id: "biz-002", name: "Moyo General Store", owner_name: "Rutendo Moyo", email: "rutendo@moyo.co.zw", phone: "0772345678", subscription_status: "pending", subscription_plan: "monthly", subscription_expires_at: null, is_active: false, created_at: "2026-05-10" },
-    { id: "biz-003", name: "Dube Pharmacy", owner_name: "Sipho Dube", email: "sipho@dube.co.zw", phone: "0773456789", subscription_status: "expired", subscription_plan: "quarterly", subscription_expires_at: "2026-05-01", is_active: false, created_at: "2026-01-15" },
-  ],
-  products: [
-    { id: "p1", business_id: "biz-001", name: "Samsung 320L Fridge", sku: "SAM-F320", category: "Fridges", cost_price: 320, selling_price: 420, current_stock: 3, low_stock_threshold: 5, unit: "units", expiry_date: null, supplier: "Samsung ZW" },
-    { id: "p2", business_id: "biz-001", name: "Ariston 4-Plate Stove", sku: "ARI-S4P", category: "Stoves", cost_price: 180, selling_price: 250, current_stock: 8, low_stock_threshold: 3, unit: "units", expiry_date: null, supplier: "Ariston ZW" },
-    { id: "p3", business_id: "biz-001", name: "LG Microwave 20L", sku: "LG-MW20", category: "Microwaves", cost_price: 85, selling_price: 130, current_stock: 2, low_stock_threshold: 3, unit: "units", expiry_date: null, supplier: "LG ZW" },
-    { id: "p4", business_id: "biz-001", name: "Russell Hobbs Kettle", sku: "RH-KT15", category: "Kettles", cost_price: 25, selling_price: 40, current_stock: 12, low_stock_threshold: 5, unit: "units", expiry_date: null, supplier: "RH Imports" },
-    { id: "p5", business_id: "biz-001", name: "TCL 43\" Smart TV", sku: "TCL-TV43", category: "TVs", cost_price: 290, selling_price: 390, current_stock: 1, low_stock_threshold: 2, unit: "units", expiry_date: null, supplier: "TCL ZW" },
-  ],
-  payments: [
-    { id: "pay-001", business_id: "biz-002", amount: 5, plan: "monthly", payment_method: "ecocash", payment_status: "pending", created_at: "2026-05-18", businesses: { name: "Moyo General Store", owner_name: "Rutendo Moyo", phone: "0772345678" } },
-    { id: "pay-002", business_id: "biz-003", amount: 13, plan: "quarterly", payment_method: "ecocash", payment_status: "pending", created_at: "2026-05-15", businesses: { name: "Dube Pharmacy", owner_name: "Sipho Dube", phone: "0773456789" } },
-  ],
-  movements: []
-};
 
 // ─────────────────────────────────────────────
 // AUTH CONTEXT
@@ -36,11 +14,9 @@ function AuthProvider({ children }) {
       setUser(session?.user ?? null);
       setLoading(false);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -352,7 +328,7 @@ function RegisterPage({ navigate }) {
         phone: form.phone,
         business_type: form.businessType,
         subscription_plan: form.plan,
-        status: "pending",
+        subscription_status: "pending",   // FIX: was "status"
         user_id: userId,
       }]);
       if (bizError) throw bizError;
@@ -502,7 +478,7 @@ function DashboardLayout({ children, activeTab, setActiveTab, navigate }) {
       <aside className="sidebar">
         <div className="sidebar-logo">
           <h1>Stock<span>Guard</span></h1>
-          <p>{user?.business_name}</p>
+          <p>{user?.email}</p>
         </div>
         <nav>
           {tabs.map(t => (
@@ -529,6 +505,11 @@ function DashboardLayout({ children, activeTab, setActiveTab, navigate }) {
 // ─────────────────────────────────────────────
 function OverviewTab({ products }) {
   const { user } = useAuth();
+
+  // FIX: dynamic time-of-day greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
   const totalValue = products.reduce((s, p) => s + p.current_stock * p.selling_price, 0);
   const lowStock = products.filter(p => p.current_stock <= p.low_stock_threshold);
   const totalProducts = products.length;
@@ -537,7 +518,7 @@ function OverviewTab({ products }) {
   return (
     <div>
       <div className="page-header fade-up">
-        <h2>Good morning, {user?.name?.split(" ")[0]} 👋</h2>
+        <h2>{greeting} 👋</h2>
         <p>Here's your stock overview for today</p>
       </div>
 
@@ -606,9 +587,16 @@ function ProductsTab({ products, setProducts }) {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ name: "", sku: "", category: "", cost_price: "", selling_price: "", current_stock: "", low_stock_threshold: "", unit: "units", supplier: "" });
 
-  const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase()));
+  const filtered = products.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    p.sku.toLowerCase().includes(search.toLowerCase())
+  );
 
-  const openAdd = () => { setEditProduct(null); setForm({ name: "", sku: "", category: "", cost_price: "", selling_price: "", current_stock: "", low_stock_threshold: "", unit: "units", supplier: "" }); setShowModal(true); };
+  const openAdd = () => {
+    setEditProduct(null);
+    setForm({ name: "", sku: "", category: "", cost_price: "", selling_price: "", current_stock: "", low_stock_threshold: "", unit: "units", supplier: "" });
+    setShowModal(true);
+  };
   const openEdit = (p) => { setEditProduct(p); setForm({ ...p }); setShowModal(true); };
 
   const handleSave = async () => {
@@ -686,7 +674,11 @@ function ProductsTab({ products, setProducts }) {
               <div className="form-group"><label>Low Stock Alert At</label><input type="number" value={form.low_stock_threshold} onChange={e => setForm({ ...form, low_stock_threshold: e.target.value })} /></div>
             </div>
             <div className="form-row">
-              <div className="form-group"><label>Unit</label><select value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}><option>units</option><option>kg</option><option>litres</option><option>boxes</option><option>pairs</option></select></div>
+              <div className="form-group"><label>Unit</label>
+                <select value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}>
+                  <option>units</option><option>kg</option><option>litres</option><option>boxes</option><option>pairs</option>
+                </select>
+              </div>
               <div className="form-group"><label>Supplier</label><input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} placeholder="Supplier name" /></div>
             </div>
             <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
@@ -712,26 +704,21 @@ function MovementsTab({ products, setProducts }) {
 
   useEffect(() => {
     const fetchMovements = async () => {
-    const { data } = await supabase.from("stock_movements")
-  .select("*, products(name)")
-  .order("created_at", { ascending: false }).limit(50);
+      const { data } = await supabase
+        .from("stock_movements")
+        .select("*, products(name)")
+        .order("created_at", { ascending: false })
+        .limit(50);
       if (data) setMovements(data);
     };
     fetchMovements();
   }, []);
 
   const handleRecord = async () => {
-    if (!form.product_id || !form.quantity) {
-      setMsg("Please select a product and quantity.");
-      return;
-    }
+    if (!form.product_id || !form.quantity) { setMsg("Please select a product and quantity."); return; }
 
     const product = products.find(p => String(p.id) === String(form.product_id));
-
-    if (!product) {
-      setMsg("Product not found. Please try again.");
-      return;
-    }
+    if (!product) { setMsg("Product not found. Please try again."); return; }
 
     const qty = parseFloat(form.quantity);
     let newStock = product.current_stock;
@@ -760,10 +747,7 @@ function MovementsTab({ products, setProducts }) {
       notes: form.notes,
     }]).select().single();
 
-    if (error) {
-      setMsg("Error: " + error.message);
-      return;
-    }
+    if (error) { setMsg("Error: " + error.message); return; }
 
     await supabase.from("products").update({ current_stock: newStock }).eq("id", form.product_id);
     setMovements(prev => [data, ...prev]);
@@ -847,10 +831,104 @@ function MovementsTab({ products, setProducts }) {
 }
 
 // ─────────────────────────────────────────────
-// ALERTS TAB
+// ALERTS TAB  (FIX: was completely missing)
 // ─────────────────────────────────────────────
+function AlertsTab({ products }) {
+  const lowStock = products.filter(p => p.current_stock <= p.low_stock_threshold);
+  const outOfStock = products.filter(p => p.current_stock === 0);
 
+  return (
+    <div>
+      <div className="page-header fade-up">
+        <h2>Alerts</h2>
+        <p>Stock warnings and notifications</p>
+      </div>
+
+      {outOfStock.length > 0 && (
+        <div className="card fade-up-2" style={{ marginBottom: 20, border: "1.5px solid var(--danger)" }}>
+          <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--danger)", marginBottom: 16 }}>
+            🚨 Out of Stock ({outOfStock.length})
+          </h3>
+          <table>
+            <thead><tr><th>Product</th><th>SKU</th><th>Category</th><th>Supplier</th></tr></thead>
+            <tbody>
+              {outOfStock.map(p => (
+                <tr key={p.id}>
+                  <td><strong>{p.name}</strong></td>
+                  <td style={{ color: "var(--muted)", fontSize: 12 }}>{p.sku}</td>
+                  <td>{p.category}</td>
+                  <td style={{ color: "var(--muted)", fontSize: 13 }}>{p.supplier || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {lowStock.length > 0 ? (
+        <div className="card fade-up-3" style={{ border: "1.5px solid #ffe08a" }}>
+          <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--warn)", marginBottom: 16 }}>
+            ⚠️ Low Stock ({lowStock.length})
+          </h3>
+          <table>
+            <thead><tr><th>Product</th><th>Current Stock</th><th>Minimum</th><th>Shortfall</th><th>Status</th></tr></thead>
+            <tbody>
+              {lowStock.map(p => (
+                <tr key={p.id}>
+                  <td><strong>{p.name}</strong><br /><span style={{ color: "var(--muted)", fontSize: 12 }}>{p.sku}</span></td>
+                  <td>{p.current_stock} {p.unit}</td>
+                  <td>{p.low_stock_threshold} {p.unit}</td>
+                  <td style={{ color: "var(--danger)", fontWeight: 600 }}>
+                    {p.current_stock === 0 ? "Out of stock" : `-${p.low_stock_threshold - p.current_stock} ${p.unit}`}
+                  </td>
+                  <td>
+                    <span className={`tag ${p.current_stock === 0 ? "tag-expired" : "tag-low"}`}>
+                      {p.current_stock === 0 ? "Out of Stock" : "Low Stock"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="card fade-up-2" style={{ textAlign: "center", padding: "48px 0" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+          <p style={{ color: "var(--muted)" }}>All stock levels are healthy. No alerts at this time.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// PAYMENTS TAB  (FIX: function declaration was missing)
+// ─────────────────────────────────────────────
+function PaymentsTab() {
+  const { user } = useAuth();
+  const [step, setStep] = useState("choose");
+  const [selectedPlan, setSelectedPlan] = useState("monthly");
+  const [payMethod, setPayMethod] = useState("ecocash");
+  const [phone, setPhone] = useState("");
+  const [bizInfo, setBizInfo] = useState(null);
+
+  const PLANS = [
+    { id: "monthly", label: "Monthly", price: 30, period: "/month" },
+    { id: "quarterly", label: "Quarterly", price: 81, period: "/quarter" },
+    { id: "annual", label: "Annual", price: 288, period: "/year" },
   ];
+
+  useEffect(() => {
+    const fetchBiz = async () => {
+      const { data } = await supabase
+        .from("businesses")
+        .select("subscription_status, subscription_plan, subscription_expires_at")
+        .eq("user_id", user?.id)
+        .single();
+      if (data) setBizInfo(data);
+    };
+    if (user) fetchBiz();
+  }, [user]);
 
   const plan = PLANS.find(p => p.id === selectedPlan);
 
@@ -863,15 +941,19 @@ function MovementsTab({ products, setProducts }) {
           <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, marginBottom: 16 }}>Current Subscription</p>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
             <span style={{ color: "var(--muted)", fontSize: 14 }}>Status</span>
-            <span className="tag tag-active">Active</span>
+            <span className={`tag tag-${bizInfo?.subscription_status || "pending"}`}>
+              {bizInfo?.subscription_status || "pending"}
+            </span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
             <span style={{ color: "var(--muted)", fontSize: 14 }}>Plan</span>
-            <span style={{ fontWeight: 600 }}>Monthly — $30</span>
+            <span style={{ fontWeight: 600, textTransform: "capitalize" }}>
+              {bizInfo?.subscription_plan || "—"} — ${PLANS.find(p => p.id === bizInfo?.subscription_plan)?.price || "—"}
+            </span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span style={{ color: "var(--muted)", fontSize: 14 }}>Expires</span>
-            <span style={{ fontWeight: 600 }}>19 Jun 2026</span>
+            <span style={{ fontWeight: 600 }}>{bizInfo?.subscription_expires_at || "—"}</span>
           </div>
         </div>
 
@@ -884,13 +966,16 @@ function MovementsTab({ products, setProducts }) {
                   <div key={p.id} onClick={() => setSelectedPlan(p.id)}
                     style={{ padding: "10px 14px", border: `2px solid ${selectedPlan === p.id ? "var(--accent)" : "var(--border)"}`, borderRadius: 8, cursor: "pointer", display: "flex", justifyContent: "space-between", background: selectedPlan === p.id ? "#f0fdf8" : "#fff" }}>
                     <span style={{ fontWeight: 600, fontSize: 14 }}>{p.label}</span>
-                    <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>${p.price}<span style={{ fontSize: 11, color: "var(--muted)", fontFamily: "var(--font-body)", fontWeight: 400 }}>{p.period}</span></span>
+                    <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>
+                      ${p.price}<span style={{ fontSize: 11, color: "var(--muted)", fontFamily: "var(--font-body)", fontWeight: 400 }}>{p.period}</span>
+                    </span>
                   </div>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
                 {["ecocash", "paynow"].map(m => (
-                  <button key={m} className={`btn btn-sm ${payMethod === m ? "btn-primary" : "btn-ghost"}`} onClick={() => setPayMethod(m)} style={{ flex: 1, justifyContent: "center" }}>
+                  <button key={m} className={`btn btn-sm ${payMethod === m ? "btn-primary" : "btn-ghost"}`}
+                    onClick={() => setPayMethod(m)} style={{ flex: 1, justifyContent: "center" }}>
                     {m === "ecocash" ? "EcoCash" : "Paynow"}
                   </button>
                 ))}
@@ -943,7 +1028,6 @@ function BusinessDashboard({ navigate }) {
         .select("id")
         .eq("user_id", user?.id)
         .single();
-
       if (bizData) {
         const { data } = await supabase
           .from("products")
@@ -960,7 +1044,7 @@ function BusinessDashboard({ navigate }) {
     products: <ProductsTab products={products} setProducts={setProducts} />,
     movements: <MovementsTab products={products} setProducts={setProducts} />,
     alerts: <AlertsTab products={products} />,
-    payments: <PaymentsTab />
+    payments: <PaymentsTab />,
   };
 
   return (
@@ -976,40 +1060,43 @@ function BusinessDashboard({ navigate }) {
 function AdminPanel({ navigate }) {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
-  const [businesses, setBusinesses] = useState ([ ]) ;
-  const [payments, setPayments] = useState([])
-  useEffect(() => {
-  const fetchData = async () => {
-    const { data: biz } = await supabase.from("businesses").select("*");
-    const { data: pay } = await supabase.from("payments").select("*, businesses(name, owner_name, phone)");
-    if (biz) setBusinesses(biz);
-    if (pay) setPayments(pay);
-  };
-  fetchData();
-}, []);
+  const [businesses, setBusinesses] = useState([]);
+  const [payments, setPayments] = useState([]);
 
+  useEffect(() => {
+    const fetchData = async () => {
+      const { data: biz } = await supabase.from("businesses").select("*");
+      const { data: pay } = await supabase.from("payments").select("*, businesses(name, owner_name, phone)");
+      if (biz) setBusinesses(biz);
+      if (pay) setPayments(pay);
+    };
+    fetchData();
+  }, []);
+
+  // FIX: MRR uses correct prices $30/$81/$288
   const stats = {
     total: businesses.length,
     active: businesses.filter(b => b.subscription_status === "active").length,
     pending: businesses.filter(b => b.subscription_status === "pending").length,
-    mrr: businesses.filter(b => b.subscription_status === "active" && b.subscription_plan === "monthly").length * 5
-      + businesses.filter(b => b.subscription_status === "active" && b.subscription_plan === "quarterly").length * (13 / 3)
-      + businesses.filter(b => b.subscription_status === "active" && b.subscription_plan === "annual").length * (45 / 12),
+    mrr: businesses.filter(b => b.subscription_status === "active" && b.subscription_plan === "monthly").length * 30
+      + businesses.filter(b => b.subscription_status === "active" && b.subscription_plan === "quarterly").length * (81 / 3)
+      + businesses.filter(b => b.subscription_status === "active" && b.subscription_plan === "annual").length * (288 / 12),
   };
 
+  // FIX: toggle uses subscription_status consistently
   const toggleBusiness = async (id) => {
-  const biz = businesses.find(b => b.id === id);
-  const newStatus = biz.subscription_status === "active" ? "suspended" : "active";
-  await supabase.from("businesses").update({ subscription_status: newStatus }).eq("id", id);
-  setBusinesses(prev => prev.map(b => b.id === id ? { ...b, subscription_status: newStatus } : b));
-};
+    const biz = businesses.find(b => b.id === id);
+    const newStatus = biz.subscription_status === "active" ? "suspended" : "active";
+    await supabase.from("businesses").update({ subscription_status: newStatus }).eq("id", id);
+    setBusinesses(prev => prev.map(b => b.id === id ? { ...b, subscription_status: newStatus } : b));
+  };
 
-const verifyPayment = async (payId, bizId) => {
-  await supabase.from("payments").update({ payment_status: "verified" }).eq("id", payId);
-  await supabase.from("businesses").update({ subscription_status: "active" }).eq("id", bizId);
-  setPayments(prev => prev.map(p => p.id === payId ? { ...p, payment_status: "verified" } : p));
-  setBusinesses(prev => prev.map(b => b.id === bizId ? { ...b, subscription_status: "active" } : b));
-};
+  const verifyPayment = async (payId, bizId) => {
+    await supabase.from("payments").update({ payment_status: "verified" }).eq("id", payId);
+    await supabase.from("businesses").update({ subscription_status: "active" }).eq("id", bizId);
+    setPayments(prev => prev.map(p => p.id === payId ? { ...p, payment_status: "verified" } : p));
+    setBusinesses(prev => prev.map(b => b.id === bizId ? { ...b, subscription_status: "active" } : b));
+  };
 
   const tabs = [
     { id: "overview", icon: "⊞", label: "Overview" },
@@ -1048,7 +1135,7 @@ const verifyPayment = async (payId, bizId) => {
           <div>
             <div className="page-header fade-up">
               <h2>Admin Overview</h2>
-              <p>Welcome, {user?.name}. Here's your platform snapshot.</p>
+              <p>Platform snapshot — {new Date().toLocaleDateString("en-ZW", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
             </div>
             <div className="stats-grid fade-up-2">
               {[
@@ -1096,8 +1183,11 @@ const verifyPayment = async (payId, bizId) => {
                       <td>{statusTag(b.subscription_status)}</td>
                       <td style={{ fontSize: 12, color: "var(--muted)" }}>{b.subscription_expires_at || "—"}</td>
                       <td>
-                        <button className={`btn btn-sm ${b.is_active ? "btn-danger" : "btn-accent"}`} onClick={() => toggleBusiness(b.id)}>
-                          {b.is_active ? "Suspend" : "Activate"}
+                        {/* FIX: button label now reads from subscription_status, not is_active */}
+                        <button
+                          className={`btn btn-sm ${b.subscription_status === "active" ? "btn-danger" : "btn-accent"}`}
+                          onClick={() => toggleBusiness(b.id)}>
+                          {b.subscription_status === "active" ? "Suspend" : "Activate"}
                         </button>
                       </td>
                     </tr>
@@ -1127,9 +1217,10 @@ const verifyPayment = async (payId, bizId) => {
                         <td><span className={`tag ${p.payment_status === "verified" ? "tag-active" : "tag-pending"}`}>{p.payment_status}</span></td>
                         <td style={{ fontSize: 12, color: "var(--muted)" }}>{p.created_at}</td>
                         <td>
-                          {p.payment_status === "pending" ? (
-                            <button className="btn btn-accent btn-sm" onClick={() => verifyPayment(p.id, p.business_id)}>✓ Verify</button>
-                          ) : <span style={{ color: "var(--muted)", fontSize: 12 }}>Done</span>}
+                          {p.payment_status === "pending"
+                            ? <button className="btn btn-accent btn-sm" onClick={() => verifyPayment(p.id, p.business_id)}>✓ Verify</button>
+                            : <span style={{ color: "var(--muted)", fontSize: 12 }}>Done</span>
+                          }
                         </td>
                       </tr>
                     ))}
@@ -1155,7 +1246,11 @@ function App() {
     if (!loading && !user && route !== "#register") navigate("#login");
   }, [user, loading, route]);
 
-  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontSize: 20, color: "var(--muted)" }}>Loading...</div>;
+  if (loading) return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontSize: 20, color: "var(--muted)" }}>
+      Loading...
+    </div>
+  );
 
   const page = () => {
     if (route === "#register") return <RegisterPage navigate={navigate} />;
