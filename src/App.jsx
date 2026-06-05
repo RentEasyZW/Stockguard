@@ -117,6 +117,8 @@ const GlobalStyle = () => (
     .tag-suspended { background: #e8e6e0; color: #555; }
     .tag-low { background: #fde8e8; color: #c0392b; }
     .tag-ok { background: #d4f7ed; color: #00875a; }
+    .tag-profit { background: #d4f7ed; color: #00875a; }
+    .tag-loss { background: #fde8e8; color: #c0392b; }
 
     .card {
       background: var(--card); border-radius: var(--radius);
@@ -328,7 +330,7 @@ function RegisterPage({ navigate }) {
         phone: form.phone,
         business_type: form.businessType,
         subscription_plan: form.plan,
-        subscription_status: "pending",   // FIX: was "status"
+        subscription_status: "pending",
         user_id: userId,
       }]);
       if (bizError) throw bizError;
@@ -469,6 +471,7 @@ function DashboardLayout({ children, activeTab, setActiveTab, navigate }) {
     { id: "overview", icon: "⊞", label: "Overview" },
     { id: "products", icon: "📦", label: "Products" },
     { id: "movements", icon: "↕️", label: "Stock Movements" },
+    { id: "profit", icon: "📊", label: "Profit & Loss" },
     { id: "alerts", icon: "🔔", label: "Alerts" },
     { id: "payments", icon: "💳", label: "Payments" },
   ];
@@ -506,7 +509,6 @@ function DashboardLayout({ children, activeTab, setActiveTab, navigate }) {
 function OverviewTab({ products }) {
   const { user } = useAuth();
 
-  // FIX: dynamic time-of-day greeting
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
@@ -514,6 +516,10 @@ function OverviewTab({ products }) {
   const lowStock = products.filter(p => p.current_stock <= p.low_stock_threshold);
   const totalProducts = products.length;
   const totalStock = products.reduce((s, p) => s + p.current_stock, 0);
+
+  // Profit calculation for overview
+  const totalCostValue = products.reduce((s, p) => s + p.current_stock * p.cost_price, 0);
+  const potentialProfit = totalValue - totalCostValue;
 
   return (
     <div>
@@ -578,7 +584,7 @@ function OverviewTab({ products }) {
 }
 
 // ─────────────────────────────────────────────
-// PRODUCTS TAB
+// PRODUCTS TAB — FIX: removed 2-product limit
 // ─────────────────────────────────────────────
 function ProductsTab({ products, setProducts }) {
   const { user } = useAuth();
@@ -586,6 +592,7 @@ function ProductsTab({ products, setProducts }) {
   const [editProduct, setEditProduct] = useState(null);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ name: "", sku: "", category: "", cost_price: "", selling_price: "", current_stock: "", low_stock_threshold: "", unit: "units", supplier: "" });
+  const [saveError, setSaveError] = useState("");
 
   const filtered = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -594,27 +601,43 @@ function ProductsTab({ products, setProducts }) {
 
   const openAdd = () => {
     setEditProduct(null);
+    setSaveError("");
     setForm({ name: "", sku: "", category: "", cost_price: "", selling_price: "", current_stock: "", low_stock_threshold: "", unit: "units", supplier: "" });
     setShowModal(true);
   };
-  const openEdit = (p) => { setEditProduct(p); setForm({ ...p }); setShowModal(true); };
+  const openEdit = (p) => { setEditProduct(p); setSaveError(""); setForm({ ...p }); setShowModal(true); };
 
   const handleSave = async () => {
+    setSaveError("");
+    if (!form.name || !form.sku || !form.selling_price) {
+      setSaveError("Name, SKU and Selling Price are required.");
+      return;
+    }
     const payload = {
       name: form.name, sku: form.sku, category: form.category,
-      cost_price: +form.cost_price, selling_price: +form.selling_price,
-      current_stock: +form.current_stock, low_stock_threshold: +form.low_stock_threshold,
+      cost_price: +form.cost_price || 0, selling_price: +form.selling_price,
+      current_stock: +form.current_stock || 0, low_stock_threshold: +form.low_stock_threshold || 0,
       unit: form.unit, supplier: form.supplier,
     };
     if (editProduct) {
       const { error } = await supabase.from("products").update(payload).eq("id", editProduct.id);
-      if (!error) setProducts(prev => prev.map(p => p.id === editProduct.id ? { ...p, ...payload } : p));
+      if (error) { setSaveError("Update failed: " + error.message); return; }
+      setProducts(prev => prev.map(p => p.id === editProduct.id ? { ...p, ...payload } : p));
     } else {
-      const { data: bizData } = await supabase.from("businesses").select("id").eq("user_id", user?.id).single();
-      const { data, error } = await supabase.from("products").insert([{ ...payload, business_id: bizData.id }]).select().single();
-      if (!error) setProducts(prev => [...prev, data]);
+      // FIX: fetch business_id properly — no artificial limit
+      const { data: bizData, error: bizErr } = await supabase
+        .from("businesses").select("id").eq("user_id", user?.id).single();
+      if (bizErr || !bizData) { setSaveError("Could not find your business. Please try again."); return; }
+      const { data, error } = await supabase
+        .from("products")
+        .insert([{ ...payload, business_id: bizData.id }])
+        .select()
+        .single();
+      if (error) { setSaveError("Save failed: " + error.message); return; }
+      setProducts(prev => [...prev, data]);
     }
     setShowModal(false);
+    setSaveError("");
   };
 
   const handleDelete = async (id) => {
@@ -627,47 +650,55 @@ function ProductsTab({ products, setProducts }) {
   return (
     <div>
       <div className="page-header fade-up" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div><h2>Products</h2><p>Manage your stock catalogue</p></div>
+        <div><h2>Products</h2><p>Manage your stock catalogue ({products.length} products)</p></div>
         <button className="btn btn-primary" onClick={openAdd}>+ Add Product</button>
       </div>
 
       <div className="card fade-up-2">
         <input placeholder="🔍 Search products..." value={search} onChange={e => setSearch(e.target.value)} style={{ marginBottom: 20 }} />
-        <table>
-          <thead><tr><th>Product</th><th>Category</th><th>Cost</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            {filtered.map(p => (
-              <tr key={p.id}>
-                <td><strong>{p.name}</strong><br /><span style={{ color: "var(--muted)", fontSize: 12 }}>{p.sku}</span></td>
-                <td>{p.category}</td>
-                <td>${p.cost_price}</td>
-                <td>${p.selling_price}</td>
-                <td>{p.current_stock} {p.unit}</td>
-                <td><span className={`tag ${p.current_stock <= p.low_stock_threshold ? "tag-low" : "tag-ok"}`}>{p.current_stock <= p.low_stock_threshold ? "Low" : "OK"}</span></td>
-                <td>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>Edit</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>Del</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 0", color: "var(--muted)" }}>
+            <div style={{ fontSize: 36, marginBottom: 10 }}>📦</div>
+            <p>{search ? "No products match your search." : "No products yet. Click '+ Add Product' to get started."}</p>
+          </div>
+        ) : (
+          <table>
+            <thead><tr><th>Product</th><th>Category</th><th>Cost</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              {filtered.map(p => (
+                <tr key={p.id}>
+                  <td><strong>{p.name}</strong><br /><span style={{ color: "var(--muted)", fontSize: 12 }}>{p.sku}</span></td>
+                  <td>{p.category}</td>
+                  <td>${p.cost_price}</td>
+                  <td>${p.selling_price}</td>
+                  <td>{p.current_stock} {p.unit}</td>
+                  <td><span className={`tag ${p.current_stock <= p.low_stock_threshold ? "tag-low" : "tag-ok"}`}>{p.current_stock <= p.low_stock_threshold ? "Low" : "OK"}</span></td>
+                  <td>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => openEdit(p)}>Edit</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>Del</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {showModal && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal">
             <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 800, marginBottom: 20 }}>{editProduct ? "Edit Product" : "Add New Product"}</h3>
-            <div className="form-group"><label>Product Name</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Samsung 320L Fridge" /></div>
+            {saveError && <div className="alert-banner alert-error" style={{ marginBottom: 16 }}>⚠️ {saveError}</div>}
+            <div className="form-group"><label>Product Name *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Samsung 320L Fridge" /></div>
             <div className="form-row">
-              <div className="form-group"><label>SKU / Code</label><input value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="SAM-F320" /></div>
+              <div className="form-group"><label>SKU / Code *</label><input value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="SAM-F320" /></div>
               <div className="form-group"><label>Category</label><input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="Fridges" /></div>
             </div>
             <div className="form-row">
               <div className="form-group"><label>Cost Price ($)</label><input type="number" value={form.cost_price} onChange={e => setForm({ ...form, cost_price: e.target.value })} /></div>
-              <div className="form-group"><label>Selling Price ($)</label><input type="number" value={form.selling_price} onChange={e => setForm({ ...form, selling_price: e.target.value })} /></div>
+              <div className="form-group"><label>Selling Price ($) *</label><input type="number" value={form.selling_price} onChange={e => setForm({ ...form, selling_price: e.target.value })} /></div>
             </div>
             <div className="form-row">
               <div className="form-group"><label>Current Stock</label><input type="number" value={form.current_stock} onChange={e => setForm({ ...form, current_stock: e.target.value })} /></div>
@@ -693,26 +724,34 @@ function ProductsTab({ products, setProducts }) {
 }
 
 // ─────────────────────────────────────────────
-// STOCK MOVEMENTS TAB
+// STOCK MOVEMENTS TAB — FIX: filter by business_id
 // ─────────────────────────────────────────────
 function MovementsTab({ products, setProducts }) {
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [movements, setMovements] = useState([]);
   const [msg, setMsg] = useState("");
+  const [businessId, setBusinessId] = useState(null);
   const [form, setForm] = useState({ product_id: "", movement_type: "stock_in", quantity: "", reference: "", notes: "" });
 
   useEffect(() => {
     const fetchMovements = async () => {
+      // FIX: fetch business_id first, then filter movements by it
+      const { data: bizData } = await supabase
+        .from("businesses").select("id").eq("user_id", user?.id).single();
+      if (!bizData) return;
+      setBusinessId(bizData.id);
+
       const { data } = await supabase
         .from("stock_movements")
         .select("*, products(name)")
+        .eq("business_id", bizData.id)   // ← THIS is the fix
         .order("created_at", { ascending: false })
         .limit(50);
       if (data) setMovements(data);
     };
-    fetchMovements();
-  }, []);
+    if (user) fetchMovements();
+  }, [user]);
 
   const handleRecord = async () => {
     if (!form.product_id || !form.quantity) { setMsg("Please select a product and quantity."); return; }
@@ -745,13 +784,15 @@ function MovementsTab({ products, setProducts }) {
       new_stock: newStock,
       reference: form.reference,
       notes: form.notes,
-    }]).select().single();
+    }]).select("*, products(name)").single();
 
     if (error) { setMsg("Error: " + error.message); return; }
 
     await supabase.from("products").update({ current_stock: newStock }).eq("id", form.product_id);
     setMovements(prev => [data, ...prev]);
-    setProducts(prev => prev.map(p => p.id === form.product_id ? { ...p, current_stock: newStock } : p));
+    setProducts(prev => prev.map(p =>
+      String(p.id) === String(form.product_id) ? { ...p, current_stock: newStock } : p
+    ));
     setShowModal(false);
     setForm({ product_id: "", movement_type: "stock_in", quantity: "", reference: "", notes: "" });
     setMsg("");
@@ -779,7 +820,7 @@ function MovementsTab({ products, setProducts }) {
             <tbody>
               {movements.map(m => (
                 <tr key={m.id}>
-                  <td><strong>{m.products?.name || m.product_id}</strong></td>
+                  <td><strong>{m.products?.name || "—"}</strong></td>
                   <td><span className={`tag ${typeColors[m.movement_type]}`}>{typeLabels[m.movement_type]}</span></td>
                   <td>{m.quantity}</td>
                   <td>{m.previous_stock}</td>
@@ -831,7 +872,193 @@ function MovementsTab({ products, setProducts }) {
 }
 
 // ─────────────────────────────────────────────
-// ALERTS TAB  (FIX: was completely missing)
+// PROFIT & LOSS TAB — NEW FEATURE
+// ─────────────────────────────────────────────
+function ProfitTab({ products }) {
+  const { user } = useAuth();
+  const [movements, setMovements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState("all");
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const { data: bizData } = await supabase
+        .from("businesses").select("id").eq("user_id", user?.id).single();
+      if (!bizData) { setLoading(false); return; }
+
+      const { data } = await supabase
+        .from("stock_movements")
+        .select("*, products(name, cost_price, selling_price)")
+        .eq("business_id", bizData.id)
+        .eq("movement_type", "stock_out")
+        .order("created_at", { ascending: false });
+      if (data) setMovements(data);
+      setLoading(false);
+    };
+    if (user) fetchData();
+  }, [user]);
+
+  // Filter by period
+  const now = new Date();
+  const filtered = movements.filter(m => {
+    const d = new Date(m.created_at);
+    if (period === "today") return d.toDateString() === now.toDateString();
+    if (period === "week") return (now - d) <= 7 * 24 * 60 * 60 * 1000;
+    if (period === "month") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return true;
+  });
+
+  // Calculate revenue and cost from stock_out movements
+  const revenue = filtered.reduce((sum, m) => {
+    const price = m.products?.selling_price || 0;
+    return sum + (m.quantity * price);
+  }, 0);
+  const cost = filtered.reduce((sum, m) => {
+    const cp = m.products?.cost_price || 0;
+    return sum + (m.quantity * cp);
+  }, 0);
+  const grossProfit = revenue - cost;
+  const margin = revenue > 0 ? ((grossProfit / revenue) * 100).toFixed(1) : 0;
+  const isProfit = grossProfit >= 0;
+
+  // Per-product breakdown
+  const productSummary = {};
+  filtered.forEach(m => {
+    const name = m.products?.name || "Unknown";
+    const sp = m.products?.selling_price || 0;
+    const cp = m.products?.cost_price || 0;
+    if (!productSummary[name]) productSummary[name] = { qty: 0, revenue: 0, cost: 0 };
+    productSummary[name].qty += m.quantity;
+    productSummary[name].revenue += m.quantity * sp;
+    productSummary[name].cost += m.quantity * cp;
+  });
+  const productRows = Object.entries(productSummary).map(([name, d]) => ({
+    name, qty: d.qty, revenue: d.revenue, cost: d.cost, profit: d.revenue - d.cost
+  })).sort((a, b) => b.profit - a.profit);
+
+  // Current inventory value
+  const inventoryCost = products.reduce((s, p) => s + p.current_stock * p.cost_price, 0);
+  const inventoryRetail = products.reduce((s, p) => s + p.current_stock * p.selling_price, 0);
+
+  return (
+    <div>
+      <div className="page-header fade-up" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div><h2>Profit & Loss</h2><p>Track your earnings and margins</p></div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {[["all","All Time"],["month","This Month"],["week","This Week"],["today","Today"]].map(([val, label]) => (
+            <button key={val} className={`btn btn-sm ${period === val ? "btn-primary" : "btn-ghost"}`}
+              onClick={() => setPeriod(val)}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "60px 0", color: "var(--muted)" }}>Loading...</div>
+      ) : (
+        <>
+          {/* Summary Cards */}
+          <div className="stats-grid fade-up-2">
+            <div className="stat-card" style={{ border: "1.5px solid var(--accent)" }}>
+              <div className="label">Total Revenue</div>
+              <div className="value" style={{ color: "var(--accent)" }}>${revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="sub">from {filtered.length} sales</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Cost of Goods Sold</div>
+              <div className="value" style={{ color: "var(--muted)", fontSize: 26 }}>${cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              <div className="sub">total cost of items sold</div>
+            </div>
+            <div className="stat-card" style={{ border: `1.5px solid ${isProfit ? "var(--accent)" : "var(--danger)"}` }}>
+              <div className="label">Gross Profit</div>
+              <div className="value" style={{ color: isProfit ? "var(--accent)" : "var(--danger)" }}>
+                {isProfit ? "+" : ""}${grossProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="sub">
+                <span className={`tag ${isProfit ? "tag-profit" : "tag-loss"}`}>{isProfit ? "▲ Profit" : "▼ Loss"}</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Gross Margin</div>
+              <div className="value" style={{ color: isProfit ? "var(--accent2)" : "var(--danger)" }}>{margin}%</div>
+              <div className="sub">profit per $1 of revenue</div>
+            </div>
+          </div>
+
+          {/* Visual profit bar */}
+          {revenue > 0 && (
+            <div className="card fade-up-3" style={{ marginBottom: 24 }}>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, marginBottom: 16 }}>Revenue Breakdown</p>
+              <div style={{ display: "flex", height: 36, borderRadius: 8, overflow: "hidden", marginBottom: 12 }}>
+                <div style={{ width: `${(cost/revenue)*100}%`, background: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ color: "#fff", fontSize: 11, fontWeight: 600 }}>Cost {((cost/revenue)*100).toFixed(0)}%</span>
+                </div>
+                <div style={{ flex: 1, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ color: "#fff", fontSize: 11, fontWeight: 600 }}>Profit {margin}%</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 20, fontSize: 13 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 2, background: "var(--muted)", display: "inline-block" }} />Cost: ${cost.toFixed(2)}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 2, background: "var(--accent)", display: "inline-block" }} />Profit: ${grossProfit.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Per-product table */}
+          {productRows.length > 0 ? (
+            <div className="card fade-up-3" style={{ marginBottom: 24 }}>
+              <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, marginBottom: 16 }}>Profit by Product</h3>
+              <table>
+                <thead><tr><th>Product</th><th>Units Sold</th><th>Revenue</th><th>Cost</th><th>Profit</th><th>Status</th></tr></thead>
+                <tbody>
+                  {productRows.map((r, i) => (
+                    <tr key={i}>
+                      <td><strong>{r.name}</strong></td>
+                      <td>{r.qty}</td>
+                      <td>${r.revenue.toFixed(2)}</td>
+                      <td>${r.cost.toFixed(2)}</td>
+                      <td style={{ fontWeight: 700, color: r.profit >= 0 ? "var(--accent)" : "var(--danger)" }}>
+                        {r.profit >= 0 ? "+" : ""}${r.profit.toFixed(2)}
+                      </td>
+                      <td><span className={`tag ${r.profit >= 0 ? "tag-profit" : "tag-loss"}`}>{r.profit >= 0 ? "Profit" : "Loss"}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="card fade-up-3" style={{ textAlign: "center", padding: "48px 0" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+              <p style={{ color: "var(--muted)" }}>No sales recorded yet for this period.<br />Record stock-out movements to see your profit analysis.</p>
+            </div>
+          )}
+
+          {/* Inventory value card */}
+          <div className="card fade-up-4">
+            <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, marginBottom: 16 }}>Current Inventory Value</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+              <div style={{ background: "var(--surface)", borderRadius: 10, padding: 16 }}>
+                <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>AT COST PRICE</p>
+                <p style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800 }}>${inventoryCost.toLocaleString()}</p>
+              </div>
+              <div style={{ background: "var(--surface)", borderRadius: 10, padding: 16 }}>
+                <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>AT SELLING PRICE</p>
+                <p style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800, color: "var(--accent)" }}>${inventoryRetail.toLocaleString()}</p>
+              </div>
+              <div style={{ background: "var(--surface)", borderRadius: 10, padding: 16 }}>
+                <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>POTENTIAL PROFIT</p>
+                <p style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 800, color: "var(--accent2)" }}>${(inventoryRetail - inventoryCost).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// ALERTS TAB
 // ─────────────────────────────────────────────
 function AlertsTab({ products }) {
   const lowStock = products.filter(p => p.current_stock <= p.low_stock_threshold);
@@ -902,7 +1129,7 @@ function AlertsTab({ products }) {
 }
 
 // ─────────────────────────────────────────────
-// PAYMENTS TAB  (FIX: function declaration was missing)
+// PAYMENTS TAB
 // ─────────────────────────────────────────────
 function PaymentsTab() {
   const { user } = useAuth();
@@ -1043,6 +1270,7 @@ function BusinessDashboard({ navigate }) {
     overview: <OverviewTab products={products} />,
     products: <ProductsTab products={products} setProducts={setProducts} />,
     movements: <MovementsTab products={products} setProducts={setProducts} />,
+    profit: <ProfitTab products={products} />,
     alerts: <AlertsTab products={products} />,
     payments: <PaymentsTab />,
   };
@@ -1073,7 +1301,6 @@ function AdminPanel({ navigate }) {
     fetchData();
   }, []);
 
-  // FIX: MRR uses correct prices $30/$81/$288
   const stats = {
     total: businesses.length,
     active: businesses.filter(b => b.subscription_status === "active").length,
@@ -1083,7 +1310,6 @@ function AdminPanel({ navigate }) {
       + businesses.filter(b => b.subscription_status === "active" && b.subscription_plan === "annual").length * (288 / 12),
   };
 
-  // FIX: toggle uses subscription_status consistently
   const toggleBusiness = async (id) => {
     const biz = businesses.find(b => b.id === id);
     const newStatus = biz.subscription_status === "active" ? "suspended" : "active";
@@ -1183,7 +1409,6 @@ function AdminPanel({ navigate }) {
                       <td>{statusTag(b.subscription_status)}</td>
                       <td style={{ fontSize: 12, color: "var(--muted)" }}>{b.subscription_expires_at || "—"}</td>
                       <td>
-                        {/* FIX: button label now reads from subscription_status, not is_active */}
                         <button
                           className={`btn btn-sm ${b.subscription_status === "active" ? "btn-danger" : "btn-accent"}`}
                           onClick={() => toggleBusiness(b.id)}>
