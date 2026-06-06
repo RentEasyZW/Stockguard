@@ -501,7 +501,42 @@ function DashboardLayout({ children, activeTab, setActiveTab, navigate }) {
       <main className="main-content">{children}</main>
     </div>
   );
-}
+}// ----------------------------------
+// SEND LOW STOCK ALERT VIA SMS
+// ----------------------------------
+const sendLowStockAlert = async (phone, businessName, lowStockItems) => {
+  if (!phone || lowStockItems.length === 0) return;
+
+  const itemList = lowStockItems
+    .map(p => ${p.name}: ${p.current_stock} left (min: ${p.low_stock_threshold}))
+    .join(', ');
+
+  const message = StockGuard Alert for ${businessName}: Low stock detected - ${itemList}. Please restock soon.;
+
+  const formattedPhone = phone.startsWith('0')
+    ? '+263' + phone.slice(1)
+    : phone;
+
+  try {
+    const response = await fetch('https://api.sandbox.africastalking.com/version1/messaging', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'apiKey': 'atsk_f5f2fd6753e206439d8c3cdc64704c46e4dd9939ff41aef178258baa9c06e4645206b99c',
+      },
+      body: new URLSearchParams({
+        username: 'sandbox',
+        to: formattedPhone,
+        message: message,
+        from: 'StockGuard',
+      }),
+    });
+    console.log('Alert sent:', await response.json());
+  } catch (err) {
+    console.error('Alert failed:', err);
+  }
+};
 
 // ─────────────────────────────────────────────
 // OVERVIEW TAB
@@ -520,6 +555,21 @@ function OverviewTab({ products }) {
   // Profit calculation for overview
   const totalCostValue = products.reduce((s, p) => s + p.current_stock * p.cost_price, 0);
   const potentialProfit = totalValue - totalCostValue;
+  const { user } = useAuth();
+  useEffect(() => {
+    if (lowStock.length > 0) {
+      supabase
+        .from('businesses')
+        .select('id, name, phone')
+        .eq('user_id', user?.id)
+        .single()
+        .then(({ data }) => {
+          if (data?.phone) {
+            sendLowStockAlert(data.phone, data.name, lowStock);
+          }
+        });
+    }
+  }, [lowStock.length]);
 
   return (
     <div>
