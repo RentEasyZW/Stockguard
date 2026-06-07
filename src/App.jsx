@@ -556,9 +556,7 @@ function OverviewTab({ products }) {
           }
         });
     }
-  }, [products.length, lowStock.length]);
-    }
-  }, [products.length, lowStock.length]);
+}, [products.length, lowStock.length]);  
 
   return (
     <div>
