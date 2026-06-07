@@ -541,6 +541,9 @@ function OverviewTab({ products }) {
   
   useEffect(() => {
     if (lowStock.length > 0) {
+      const lastAlert = localStorage.getItem('lastAlertSent_' + user?.id);
+      const now = Date.now();
+      if (lastAlert && now - parseInt(lastAlert) < 24 * 60 * 60 * 1000) return;
       supabase
         .from('businesses')
         .select('id, name, phone')
@@ -549,8 +552,11 @@ function OverviewTab({ products }) {
         .then(({ data }) => {
           if (data?.phone) {
             sendLowStockAlert(data.phone, data.name, lowStock);
+            localStorage.setItem('lastAlertSent_' + user?.id, now.toString());
           }
         });
+    }
+  }, [products.length, lowStock.length]);
     }
   }, [products.length, lowStock.length]);
 
