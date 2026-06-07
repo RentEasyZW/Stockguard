@@ -17,14 +17,14 @@ serve(async (req) => {
       .join(", ");
     const message = `StockGuard Alert for ${businessName}: Low stock - ${itemList}. Please restock.`;
     const formattedPhone = phone.startsWith("0") ? "+263" + phone.slice(1) : phone;
-    const response = await fetch("https://api.sandbox.africastalking.com/version1/messaging", {
+    const response = await fetch("https://api.africastalking.com/version1/messaging", {
       method: "POST",
       headers: {
         "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
-        "apiKey": "atsk_f5f2fd6753e206439d8c3cdc64704c46e4dd9939ff41aef178258baa9c06e4645206b99c",
+        "apiKey": "atsk_bc3eaab32f8cdafce398d72b2374e4ce398ecbd2b2189aabcf7734a8611247843f262faf",
       },
-      body: new URLSearchParams({ username: "sandbox", to: formattedPhone, message }),
+      body: new URLSearchParams({ username: "stockguard", to: formattedPhone, message }),
     });
     const result = await response.json();
     return new Response(JSON.stringify(result), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
